@@ -1,21 +1,20 @@
 import logging
 import time
-import requests
 import emoji
+import requests
 
+import aiogram.utils.markdown as md
 from aiogram import Bot, Dispatcher, executor, types
+from aiogram import filters
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-import aiogram.utils.markdown as md
-from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, \
-    KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram import filters
+import config.data_bot as conf_d
+import config.buttons_bot as conf_b
 
 logging.basicConfig(level=logging.INFO, filename="bot.log", filemode="w")
 
-BOT_TOKEN = "5885516304:AAH6haMHNEyHB1Ivb--m0SzYS1dH-F3Eku0"
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=conf_d.BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
@@ -25,28 +24,12 @@ class Form(StatesGroup):
     city = State()
 
 
-# Buttons
-buttons = {
-    'button_weather': KeyboardButton(emoji.emojize('Weather :sun_behind_cloud:')),
-    'button_cancel': KeyboardButton(emoji.emojize("Cancel :cross_mark:"))
-}
-
-
-# Keyboards
-keyboards = {
-    'kb_weather': ReplyKeyboardMarkup(resize_keyboard=True),
-    'kb_weather_cancel': ReplyKeyboardMarkup(resize_keyboard=True)
-}
-keyboards['kb_weather_cancel'].add(buttons['button_cancel'])
-keyboards['kb_weather'].add(buttons['button_weather'])
-
-
 @dp.message_handler(commands='start')
 async def start_handle(message: types.Message):
     user_id = message.from_user.id
     user_full_name = message.from_user.full_name
     logging.info(f'{user_id} {user_full_name} {time.asctime()}')
-    await message.reply(md.text(f"Hi, {user_full_name}."), reply_markup=keyboards['kb_weather'])
+    await message.reply(md.text(f"Hi, {user_full_name}."), reply_markup=conf_b.keyboards['kb_weather'])
 
 
 @dp.message_handler(commands='weather')
@@ -58,7 +41,7 @@ async def start_weather(message: types.Message):
         message.chat.id,
         md.bold(emoji.emojize(":cityscape: Please enter your city:"), sep="\n"),
         parse_mode="MarkdownV2",
-        reply_markup=keyboards['kb_weather_cancel']
+        reply_markup=conf_b.keyboards['kb_weather_cancel']
     )
 
 
@@ -71,7 +54,7 @@ async def cancel_handler(message: types.Message, state: FSMContext):
 
     logging.info(f"Canceling state %r", current_state)
     await state.finish()
-    await message.reply("Cancelled request!", reply_markup=keyboards['kb_weather'])
+    await message.reply("Cancelled request!", reply_markup=conf_b.keyboards['kb_weather'])
 
 
 @dp.message_handler(state=Form.city)
@@ -81,8 +64,10 @@ async def process_city(message: types.Message, state: FSMContext):
     await state.finish()
     city = data['city']
     try:
-        url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{city}?unitGroup=metric&key=4CWDMKRUDWAT7SDEUYABU6ZRD&contentType=json"
-        result_json = requests.get(url).json()
+        url_one_part, url_to_part = conf_d.URL_API.split(sep="?")
+        url_one_part += city + '?'
+        request_api = url_one_part + url_to_part
+        result_json = requests.get(request_api).json()
         if result_json is not None:
             adress = result_json['resolvedAddress']
             timezone = result_json['timezone']
@@ -100,7 +85,7 @@ async def process_city(message: types.Message, state: FSMContext):
                     sep="\n"
                 ),
                 parse_mode="MarkdownV2",
-                reply_markup=keyboards['kb_weather']
+                reply_markup=conf_b.keyboards['kb_weather']
             )
     except requests.exceptions.JSONDecodeError as e:
         logging.error(f'{e}, {time.asctime()}')
@@ -108,7 +93,7 @@ async def process_city(message: types.Message, state: FSMContext):
             message.chat.id,
             md.text(md.bold(emoji.emojize(":stop_sign: Error: ")), md.code("The request is not correct!")),
             parse_mode="MarkdownV2",
-            reply_markup=keyboards['kb_weather']
+            reply_markup=conf_b.keyboards['kb_weather']
         )
 
     user_id = message.from_user.id
