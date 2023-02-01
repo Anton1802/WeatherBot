@@ -13,8 +13,10 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 import config.data_bot as conf_d
 import config.buttons_bot as conf_b
 
+# Setting logging
 logging.basicConfig(level=logging.INFO, filename="bot.log", filemode="w")
 
+# Bot, storage, dispatcher
 bot = Bot(token=conf_d.BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
@@ -25,6 +27,12 @@ class Form(StatesGroup):
     city = State()
 
 
+'''
+This is a function in the python programming language that uses the Telebot API to handle the /start command in a Telegram chatbot. 
+The function takes a message parameter of type types.Message which contains information about the user who sent the message. 
+The user's ID and full name are extracted from the message object and logged to the console. 
+Then, a reply is sent back to the user with the text "Hi, [user full name]." and a keyboard markup specified in conf_b.keyboards['kb_weather'].
+'''
 @dp.message_handler(commands='start')
 async def start_handle(message: types.Message):
     user_id = message.from_user.id
@@ -35,6 +43,12 @@ async def start_handle(message: types.Message):
     logging.info(f'{user_id} {user_full_name} {time.asctime()}')
 
 
+"""
+This is a function in the python programming language that uses the Telebot API to handle the /weather 
+command or a text message that contains the emoji "Weather :sun_behind_cloud:" in a Telegram chatbot. 
+The function sets the "city" field in the Form object to an active state and then sends a message to the user asking them to enter their city. 
+The message is sent with a bold text "Please enter your city:" and a keyboard markup specified in conf_b.keyboards['kb_weather_cancel'].
+"""
 @dp.message_handler(commands='weather')
 @dp.message_handler(filters.Text(equals=emoji.emojize('Weather :sun_behind_cloud:')))
 async def start_weather(message: types.Message):
@@ -48,6 +62,15 @@ async def start_weather(message: types.Message):
     )
 
 
+"""
+This is a function in the python programming language that uses the Telebot API to handle either a text message that contains the emoji
+"Cancel :cross_mark:" or the /cancel command in a Telegram chatbot. 
+The function takes two parameters, a message of type types.Message which contains information about the user's message and a state of type 
+FSMContext which is used to store the state of the chatbot's conversation with the user.
+The function first checks if the current_state is None and if it is, the function returns without doing anything. 
+If the current_state is not None, the function logs that it is canceling the current state and then finishes the state and sends a message 
+to the user with the text "Cancelled request!" and a keyboard markup specified in conf_b.keyboards['kb_weather'].
+"""
 @dp.message_handler(filters.Text(equals=emoji.emojize("Cancel :cross_mark:")), state="*")
 @dp.message_handler(state="*", commands='cancel')
 async def cancel_handler(message: types.Message, state: FSMContext):
@@ -59,7 +82,15 @@ async def cancel_handler(message: types.Message, state: FSMContext):
     await state.finish()
     await message.reply("Cancelled request!", reply_markup=conf_b.keyboards['kb_weather'])
 
-
+"""
+This code is a handler for a Telegram Bot using the python-telegram-bot library. 
+When the user inputs the command '/weather' or sends the message 'Weather :sun_behind_cloud:', the bot prompts the user to enter the city. 
+After the user inputs the city, the code sends a GET request to an API with the city as a parameter, and retrieves the weather 
+information for that city. The response from the API is then parsed to extract information like the city name, time zone, description, maximum
+and minimum temperature. The extracted information is then formatted and sent as a message to the user by the bot. 
+The message includes the city, time zone, description, maximum, and minimum temperature. 
+Finally, the code logs the user's id, name, and the city requested along with the time.
+"""
 @dp.message_handler(state=Form.city)
 async def process_city(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
