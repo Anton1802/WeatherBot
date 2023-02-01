@@ -2,6 +2,7 @@ import logging
 import time
 import emoji
 import requests
+from translate.translate import Translator
 
 import aiogram.utils.markdown as md
 from aiogram import Bot, Dispatcher, executor, types
@@ -28,8 +29,10 @@ class Form(StatesGroup):
 async def start_handle(message: types.Message):
     user_id = message.from_user.id
     user_full_name = message.from_user.full_name
-    logging.info(f'{user_id} {user_full_name} {time.asctime()}')
+
     await message.reply(md.text(f"Hi, {user_full_name}."), reply_markup=conf_b.keyboards['kb_weather'])
+
+    logging.info(f'{user_id} {user_full_name} {time.asctime()}')
 
 
 @dp.message_handler(commands='weather')
@@ -62,18 +65,24 @@ async def process_city(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['city'] = message.text
     await state.finish()
+
     city = data['city']
+
     try:
         url_one_part, url_to_part = conf_d.URL_API.split(sep="?")
         url_one_part += city + '?'
         request_api = url_one_part + url_to_part
+
         result_json = requests.get(request_api).json()
+
         if result_json is not None:
+            translator = Translator(to_lang="ru")
             adress = result_json['resolvedAddress']
-            timezone = result_json['timezone']
-            description = result_json['description']
+            timezone = translator.translate(result_json['timezone'])
+            description = translator.translate(result_json['description'])
             max_temp = result_json['days'][0]['tempmax']
             min_temp = result_json['days'][0]['tempmin']
+
             await bot.send_message(
                 message.chat.id,
                 md.text(
@@ -89,6 +98,7 @@ async def process_city(message: types.Message, state: FSMContext):
             )
     except requests.exceptions.JSONDecodeError as e:
         logging.error(f'{e}, {time.asctime()}')
+
         await bot.send_message(
             message.chat.id,
             md.text(md.bold(emoji.emojize(":stop_sign: Error: ")), md.code("The request is not correct!")),
@@ -98,6 +108,7 @@ async def process_city(message: types.Message, state: FSMContext):
 
     user_id = message.from_user.id
     user_full_name = message.from_user.full_name
+
     logging.info(f'{user_id}, {user_full_name}, {city}, {time.asctime()}')
 
     await bot.send_message(
