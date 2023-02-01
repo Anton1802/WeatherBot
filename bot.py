@@ -20,8 +20,25 @@ storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
 
+# States
 class Form(StatesGroup):
     city = State()
+
+
+# Buttons
+buttons = {
+    'button_weather': KeyboardButton(emoji.emojize('Weather :sun_behind_cloud:')),
+    'button_cancel': KeyboardButton(emoji.emojize("Cancel :cross_mark:"))
+}
+
+
+# Keyboards
+keyboards = {
+    'kb_weather': ReplyKeyboardMarkup(resize_keyboard=True),
+    'kb_weather_cancel': ReplyKeyboardMarkup(resize_keyboard=True)
+}
+keyboards['kb_weather_cancel'].add(buttons['button_cancel'])
+keyboards['kb_weather'].add(buttons['button_weather'])
 
 
 @dp.message_handler(commands='start')
@@ -29,20 +46,32 @@ async def start_handle(message: types.Message):
     user_id = message.from_user.id
     user_full_name = message.from_user.full_name
     logging.info(f'{user_id} {user_full_name} {time.asctime()}')
-    button_weather = KeyboardButton(emoji.emojize('Weather :sun_behind_cloud:'))
-    kb_weather = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb_weather.add(button_weather)
-    await message.reply(md.text(f"Hi, {user_full_name}."), reply_markup=kb_weather)
+    await message.reply(md.text(f"Hi, {user_full_name}."), reply_markup=keyboards['kb_weather'])
 
 
-
-@dp.message_handler(filters.Text(equals=[emoji.emojize('Weather :sun_behind_cloud:'), '/weather']))
+@dp.message_handler(commands='weather')
+@dp.message_handler(filters.Text(equals=emoji.emojize('Weather :sun_behind_cloud:')))
 async def start_weather(message: types.Message):
     await Form.city.set()
+
     await bot.send_message(
         message.chat.id,
-        md.text(emoji.emojize(":cityscape: Please enter your city:"), sep="\n")
+        md.bold(emoji.emojize(":cityscape: Please enter your city:"), sep="\n"),
+        parse_mode="MarkdownV2",
+        reply_markup=keyboards['kb_weather_cancel']
     )
+
+
+@dp.message_handler(filters.Text(equals=emoji.emojize("Cancel :cross_mark:")), state="*")
+@dp.message_handler(state="*", commands='cancel')
+async def cancel_handler(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+
+    logging.info(f"Canceling state %r", current_state)
+    await state.finish()
+    await message.reply("Cancelled request!", reply_markup=keyboards['kb_weather'])
 
 
 @dp.message_handler(state=Form.city)
@@ -71,24 +100,26 @@ async def process_city(message: types.Message, state: FSMContext):
                     sep="\n"
                 ),
                 parse_mode="MarkdownV2",
+                reply_markup=keyboards['kb_weather']
             )
     except requests.exceptions.JSONDecodeError as e:
         logging.error(f'{e}, {time.asctime()}')
         await bot.send_message(
             message.chat.id,
             md.text(md.bold(emoji.emojize(":stop_sign: Error: ")), md.code("The request is not correct!")),
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
+            reply_markup=keyboards['kb_weather']
         )
-
-    await bot.send_message(
-        message.chat.id,
-        md.text(md.bold("Thank you for contacting!"), sep="\n"),
-        parse_mode="MarkdownV2"
-    )
 
     user_id = message.from_user.id
     user_full_name = message.from_user.full_name
     logging.info(f'{user_id}, {user_full_name}, {city}, {time.asctime()}')
+
+    await bot.send_message(
+        message.chat.id,
+        md.text(md.bold(f"Thank {user_full_name} for contacting!"), sep="\n"),
+        parse_mode="MarkdownV2"
+    )
 
 
 if __name__ == "__main__":
