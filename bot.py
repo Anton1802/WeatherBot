@@ -8,9 +8,13 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 import aiogram.utils.markdown as md
+from aiogram.types import ReplyKeyboardRemove, ReplyKeyboardMarkup, \
+    KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import filters
+
+logging.basicConfig(level=logging.INFO, filename="bot.log", filemode="w")
 
 BOT_TOKEN = "5885516304:AAH6haMHNEyHB1Ivb--m0SzYS1dH-F3Eku0"
-
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
@@ -25,16 +29,14 @@ async def start_handle(message: types.Message):
     user_id = message.from_user.id
     user_full_name = message.from_user.full_name
     logging.info(f'{user_id} {user_full_name} {time.asctime()}')
-    await message.reply(
-        md.text(
-            md.text(f"Hi, {user_full_name}."),
-            md.text(f"Please enter command: /weather"),
-            sep="\n"
-        )
-    )
+    button_weather = KeyboardButton(emoji.emojize('Weather :sun_behind_cloud:'))
+    kb_weather = ReplyKeyboardMarkup(resize_keyboard=True)
+    kb_weather.add(button_weather)
+    await message.reply(md.text(f"Hi, {user_full_name}."), reply_markup=kb_weather)
 
 
-@dp.message_handler(commands='weather')
+
+@dp.message_handler(filters.Text(equals=[emoji.emojize('Weather :sun_behind_cloud:'), '/weather']))
 async def start_weather(message: types.Message):
     await Form.city.set()
     await bot.send_message(
@@ -50,12 +52,8 @@ async def process_city(message: types.Message, state: FSMContext):
     await state.finish()
     city = data['city']
     try:
-        result_json = requests.get(
-            f"https://weather.visualcrossing.com/"
-            f"VisualCrossingWebServices/rest/services/"
-            f"timeline/{city}?unitGroup=metric&"
-            f"key=4CWDMKRUDWAT7SDEUYABU6ZRD&contentType=json"
-        ).json()
+        url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{city}?unitGroup=metric&key=4CWDMKRUDWAT7SDEUYABU6ZRD&contentType=json"
+        result_json = requests.get(url).json()
         if result_json is not None:
             adress = result_json['resolvedAddress']
             timezone = result_json['timezone']
@@ -74,7 +72,8 @@ async def process_city(message: types.Message, state: FSMContext):
                 ),
                 parse_mode="MarkdownV2",
             )
-    except requests.exceptions.JSONDecodeError:
+    except requests.exceptions.JSONDecodeError as e:
+        logging.error(f'{e}, {time.asctime()}')
         await bot.send_message(
             message.chat.id,
             md.text(md.bold(emoji.emojize(":stop_sign: Error: ")), md.code("The request is not correct!")),
@@ -86,6 +85,11 @@ async def process_city(message: types.Message, state: FSMContext):
         md.text(md.bold("Thank you for contacting!"), sep="\n"),
         parse_mode="MarkdownV2"
     )
+
+    user_id = message.from_user.id
+    user_full_name = message.from_user.full_name
+    logging.info(f'{user_id}, {user_full_name}, {city}, {time.asctime()}')
+
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
