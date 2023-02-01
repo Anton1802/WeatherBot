@@ -8,3 +8,6 @@ This is a simple bot that shows the weather in the entered city.
 # Disadvantages 
 - API dependent
 # Screenshots
+![Start work:](/images_repo/1.png)
+![Question:](/images_repo/2.png)
+![Result:](/images_repo/3.png)
