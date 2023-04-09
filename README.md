@@ -1,13 +1,13 @@
 # WeatherBot
 This is a simple bot that shows the weather in the entered city.
-# Advantages
+## Advantages
 - Simple
 - Quick
 - Intuitive interface
 - Built on the best Aiogram library
-# Disadvantages 
+## Disadvantages 
 - API dependent
-# Screenshots
+## Screenshots
 ### Start work:
 ![Start work:](/images_repo/1.png)
 ### Question:
